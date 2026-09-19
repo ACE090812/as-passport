@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Passport</title>
+<style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; background: transparent; font-family: "Segoe UI", Roboto, Arial, sans-serif; overflow: hidden; }
+    #root { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,.45); }
+    #root.on { display: flex; }
+
+    .wrap { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+    .from { color: #fff; font-size: 15px; text-shadow: 0 1px 4px rgba(0,0,0,.7); }
+
+    .card {
+        position: relative; width: 640px; max-width: 94vw; border-radius: 14px; overflow: hidden;
+        background: linear-gradient(160deg, #f6efe0 0%, #efe4cb 100%);
+        box-shadow: 0 20px 60px rgba(0,0,0,.6), inset 0 0 0 1px rgba(0,0,0,.08);
+        color: #1c1917;
+    }
+    .cover {
+        background: linear-gradient(135deg, #5b0f22, #7a1a31 55%, #4a0b1b);
+        color: #e9d08a; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between;
+        letter-spacing: .18em; text-transform: uppercase; font-weight: 700; font-size: 13px;
+    }
+    .cover .crest { font-size: 20px; letter-spacing: 0; }
+    .body { display: grid; grid-template-columns: 170px 1fr; gap: 20px; padding: 20px 22px 12px; }
+    .photo {
+        width: 170px; height: 210px; border-radius: 6px; background: #d8ccb0 center / cover no-repeat;
+        box-shadow: inset 0 0 0 2px rgba(0,0,0,.18); display: flex; align-items: center; justify-content: center;
+    }
+    .photo svg { width: 70%; opacity: .35; }
+    .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; align-content: start; }
+    .f.full { grid-column: 1 / -1; }
+    .f .k { font-size: 9.5px; text-transform: uppercase; letter-spacing: .1em; color: #78716c; }
+    .f .v { font-size: 16px; font-weight: 700; letter-spacing: .02em; word-break: break-word; }
+    .f .v.mono { font-family: "Courier New", monospace; letter-spacing: .06em; }
+
+    .mrz {
+        margin: 6px 0 0; padding: 10px 22px 16px; background: rgba(0,0,0,.05);
+        font-family: "Courier New", Consolas, monospace; font-weight: 700; font-size: 15.5px; letter-spacing: .09em;
+        line-height: 1.45; white-space: pre; overflow: hidden; color: #292524;
+    }
+
+    .status {
+        position: absolute; top: 58px; right: 20px; padding: 3px 12px; border-radius: 999px; font-size: 12px; font-weight: 800;
+        letter-spacing: .08em; background: #dcfce7; color: #166534; box-shadow: inset 0 0 0 1px #86efac;
+    }
+    .card.bad .status { display: none; }
+    .stamp {
+        display: none; position: absolute; left: 50%; top: 52%; transform: translate(-50%, -50%) rotate(-14deg);
+        border: 6px solid rgba(185,28,28,.85); color: rgba(185,28,28,.85); border-radius: 10px; padding: 6px 28px;
+        font-size: 54px; font-weight: 900; letter-spacing: .12em; background: rgba(255,255,255,.35); pointer-events: none;
+    }
+    .card.bad .stamp { display: block; }
+    .card.bad .body, .card.bad .mrz { filter: grayscale(.6); }
+
+    .actions { display: flex; gap: 10px; }
+    button {
+        font: inherit; font-weight: 600; font-size: 14px; padding: 9px 18px; border-radius: 9px; border: 0; cursor: pointer;
+        background: #fff; color: #1c1917; box-shadow: 0 2px 10px rgba(0,0,0,.35);
+    }
+    button.primary { background: #7a1a31; color: #fff; }
+    button:hover { filter: brightness(1.06); }
+    .hint { color: #e7e5e4; font-size: 12px; text-shadow: 0 1px 3px rgba(0,0,0,.7); }
+</style>
+</head>
+<body>
+<div id="root">
+    <div class="wrap">
+        <div class="from" id="from"></div>
+        <div class="card" id="card">
+            <div class="cover"><span>Passport</span><span id="country"></span><span class="crest">🛂</span></div>
+            <div class="status" id="status">VALID</div>
+            <div class="stamp" id="stamp">INVALID</div>
+            <div class="body">
+                <div class="photo" id="photo"></div>
+                <div class="fields">
+                    <div class="f"><div class="k">Type</div><div class="v">P</div></div>
+                    <div class="f"><div class="k">Passport no.</div><div class="v mono" id="number"></div></div>
+                    <div class="f full"><div class="k">Surname</div><div class="v" id="last"></div></div>
+                    <div class="f full"><div class="k">Given names</div><div class="v" id="first"></div></div>
+                    <div class="f"><div class="k">Nationality</div><div class="v" id="nat"></div></div>
+                    <div class="f"><div class="k">Sex</div><div class="v" id="sex"></div></div>
+                    <div class="f"><div class="k">Date of birth</div><div class="v" id="dob"></div></div>
+                    <div class="f"><div class="k">Date of issue</div><div class="v" id="issued"></div></div>
+                    <div class="f"><div class="k">Authority</div><div class="v" id="auth" style="font-size:13px"></div></div>
+                    <div class="f"><div class="k">Valid until</div><div class="v" id="until"></div></div>
+                </div>
+            </div>
+            <div class="mrz" id="mrz"></div>
+        </div>
+        <div class="actions">
+            <button class="primary" id="show">Show to person nearby</button>
+            <button id="close">Close</button>
+        </div>
+        <div class="hint">Press Esc to close</div>
+    </div>
+</div>
+
+<script>
+(function () {
+    var root = document.getElementById('root');
+    var current = null;
+    var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    function $(id) { return document.getElementById(id); }
+    function pad(n) { return (n < 10 ? '0' : '') + n; }
+
+    // Accepts 2001-04-23, 23/04/2001 or a plain date string. Returns { y, m, d } or null.
+    function parseDob(s) {
+        s = String(s || '').trim();
+        var a = /^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/.exec(s);
+        if (a) return { y: +a[1], m: +a[2], d: +a[3] };
+        var b = /^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})/.exec(s);
+        if (b) return { y: +b[3], m: +b[2], d: +b[1] };
+        return null;
+    }
+    function dobText(s) {
+        var p = parseDob(s);
+        return p ? pad(p.d) + ' ' + MONTHS[p.m - 1] + ' ' + p.y : (s || '-');
+    }
+    function dateText(ts) {
+        if (!ts) return '-';
+        var d = new Date(ts * 1000);
+        return pad(d.getDate()) + ' ' + MONTHS[d.getMonth()] + ' ' + d.getFullYear();
+    }
+
+    // ICAO 9303 check digit: weights 7, 3, 1
+    function check(s) {
+        var w = [7, 3, 1], sum = 0;
+        for (var i = 0; i < s.length; i++) {
+            var c = s.charAt(i), v;
+            if (c >= '0' && c <= '9') v = +c;
+            else if (c >= 'A' && c <= 'Z') v = c.charCodeAt(0) - 55;
+            else v = 0;
+            sum += v * w[i % 3];
+        }
+        return String(sum % 10);
+    }
+    function clean(s) {
+        return String(s || '').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Z0-9 ]/g, '').trim().replace(/ +/g, '<');
+    }
+    function fit(s, n) { s = s.slice(0, n); while (s.length < n) s += '<'; return s; }
+    function yymmdd(p) { return p ? pad(p.y % 100) + pad(p.m) + pad(p.d) : '<<<<<<'; }
+    function dateCd(p) { return p ? check(yymmdd(p)) : '<'; }
+
+    function mrz(c) {
+        var country = fit(clean(c.country || 'XXX'), 3);
+        var l1 = 'P<' + country + fit(clean(c.last) + '<<' + clean(c.first), 39);
+        var num = fit(String(c.number || ''), 9);
+        var dob = parseDob(c.dob);
+        var exp = c.validUntil ? (function () { var d = new Date(c.validUntil * 1000); return { y: d.getFullYear(), m: d.getMonth() + 1, d: d.getDate() }; })() : { y: 2099, m: 12, d: 31 };
+        var sex = c.sex === 'M' || c.sex === 'F' ? c.sex : '<';
+        var personal = fit('', 14);
+        var body = num + check(num) + country + yymmdd(dob) + dateCd(dob) + sex + yymmdd(exp) + dateCd(exp) + personal + check(personal);
+        var l2 = body + check(body.slice(0, 10) + body.slice(13, 20) + body.slice(21, 43));
+        return l1 + '\n' + fit(l2, 44);
+    }
+
+    function silhouette() {
+        return '<svg viewBox="0 0 100 100"><circle cx="50" cy="34" r="20" fill="#000"/><path d="M10 100c0-26 18-38 40-38s40 12 40 38z" fill="#000"/></svg>';
+    }
+
+    function show(msg) {
+        var c = msg.card;
+        current = c;
+        var bad = c.status && c.status !== 'issued';
+        $('card').className = 'card' + (bad ? ' bad' : '');
+        $('stamp').textContent = c.status === 'expired' ? 'EXPIRED' : 'INVALID';
+        $('country').textContent = c.countryName || '';
+        $('number').textContent = c.number || '';
+        $('last').textContent = (c.last || '').toUpperCase();
+        $('first').textContent = (c.first || '').toUpperCase();
+        $('nat').textContent = (c.nationality || '').toUpperCase();
+        $('sex').textContent = c.sex || '-';
+        $('dob').textContent = dobText(c.dob);
+        $('issued').textContent = dateText(c.issuedAt);
+        $('until').textContent = c.validUntil ? dateText(c.validUntil) : 'No expiry';
+        $('auth').textContent = c.placeOfIssue || '';
+        var ph = $('photo');
+        if (c.photo) { ph.style.backgroundImage = 'url("' + String(c.photo).replace(/"/g, '') + '")'; ph.innerHTML = ''; }
+        else { ph.style.backgroundImage = ''; ph.innerHTML = silhouette(); }
+        $('mrz').textContent = mrz(c);
+        $('from').textContent = msg.from ? msg.from + ' shows you their passport' : '';
+        $('show').style.display = msg.own && !bad ? '' : 'none';
+        root.className = 'on';
+    }
+
+    function post(name, data) {
+        try {
+            fetch('https://' + (typeof GetParentResourceName === 'function' ? GetParentResourceName() : 'as-passport') + '/' + name, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data || {}),
+            }).catch(function () {});
+        } catch (e) {}
+    }
+    function hide() { root.className = ''; current = null; }
+    function closeAndTell() { hide(); post('close'); }
+
+    window.addEventListener('message', function (e) {
+        var m = e.data || {};
+        if (m.action === 'open' && m.card) show(m);
+        else if (m.action === 'close') hide();
+    });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' || e.key === 'Backspace') closeAndTell(); });
+    $('close').onclick = closeAndTell;
+    $('show').onclick = function () { if (current) post('showNearby', { number: current.number }); };
+    root.addEventListener('mousedown', function (e) { if (e.target === root) closeAndTell(); });
+})();
+</script>
+</body>
+</html>
