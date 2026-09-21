@@ -70,39 +70,65 @@
     <div class="wrap">
         <div class="from" id="from"></div>
         <div class="card" id="card">
-            <div class="cover"><span>Passport</span><span id="country"></span><span class="crest">🛂</span></div>
-            <div class="status" id="status">VALID</div>
+            <div class="cover"><span data-i18n="card.title">Passport</span><span id="country"></span><span class="crest">🛂</span></div>
+            <div class="status" id="status" data-i18n="card.valid">VALID</div>
             <div class="stamp" id="stamp">INVALID</div>
             <div class="body">
                 <div class="photo" id="photo"></div>
                 <div class="fields">
-                    <div class="f"><div class="k">Type</div><div class="v">P</div></div>
-                    <div class="f"><div class="k">Passport no.</div><div class="v mono" id="number"></div></div>
-                    <div class="f full"><div class="k">Surname</div><div class="v" id="last"></div></div>
-                    <div class="f full"><div class="k">Given names</div><div class="v" id="first"></div></div>
-                    <div class="f"><div class="k">Nationality</div><div class="v" id="nat"></div></div>
-                    <div class="f"><div class="k">Sex</div><div class="v" id="sex"></div></div>
-                    <div class="f"><div class="k">Date of birth</div><div class="v" id="dob"></div></div>
-                    <div class="f"><div class="k">Date of issue</div><div class="v" id="issued"></div></div>
-                    <div class="f"><div class="k">Authority</div><div class="v" id="auth" style="font-size:13px"></div></div>
-                    <div class="f"><div class="k">Valid until</div><div class="v" id="until"></div></div>
+                    <div class="f"><div class="k" data-i18n="card.type">Type</div><div class="v">P</div></div>
+                    <div class="f"><div class="k" data-i18n="card.number">Passport no.</div><div class="v mono" id="number"></div></div>
+                    <div class="f full"><div class="k" data-i18n="card.surname">Surname</div><div class="v" id="last"></div></div>
+                    <div class="f full"><div class="k" data-i18n="card.given">Given names</div><div class="v" id="first"></div></div>
+                    <div class="f"><div class="k" data-i18n="card.nationality">Nationality</div><div class="v" id="nat"></div></div>
+                    <div class="f"><div class="k" data-i18n="card.sex">Sex</div><div class="v" id="sex"></div></div>
+                    <div class="f"><div class="k" data-i18n="card.dob">Date of birth</div><div class="v" id="dob"></div></div>
+                    <div class="f"><div class="k" data-i18n="card.issued">Date of issue</div><div class="v" id="issued"></div></div>
+                    <div class="f"><div class="k" data-i18n="card.authority">Authority</div><div class="v" id="auth" style="font-size:13px"></div></div>
+                    <div class="f"><div class="k" data-i18n="card.validUntil">Valid until</div><div class="v" id="until"></div></div>
                 </div>
             </div>
             <div class="mrz" id="mrz"></div>
         </div>
         <div class="actions">
-            <button class="primary" id="show">Show to person nearby</button>
-            <button id="close">Close</button>
+            <button class="primary" id="show" data-i18n="card.show">Show to person nearby</button>
+            <button id="close" data-i18n="card.close">Close</button>
         </div>
-        <div class="hint">Press Esc to close</div>
+        <div class="hint" data-i18n="card.escHint">Press Esc to close</div>
     </div>
 </div>
 
 <script>
 (function () {
+    var RESOURCE = typeof GetParentResourceName === 'function' ? GetParentResourceName() : 'as-passport';
+
+    // ---- locale (the client script answers the 'locale' callback with the chosen language) ----
+    var I18N = {};
+    var localeReady = false;
+    function t(key) {
+        var s = Object.prototype.hasOwnProperty.call(I18N, key) ? I18N[key] : key;
+        var args = Array.prototype.slice.call(arguments, 1), i = 0;
+        return String(s).replace(/%[sd]/g, function () { return i < args.length ? args[i++] : ''; });
+    }
+    function applyI18n(root) {
+        root = root || document;
+        root.querySelectorAll('[data-i18n]').forEach(function (el) { if (I18N[el.dataset.i18n] != null) el.textContent = t(el.dataset.i18n); });
+        ['placeholder', 'title', 'aria-label'].forEach(function (a) {
+            root.querySelectorAll('[data-i18n-' + a + ']').forEach(function (el) {
+                var k = el.getAttribute('data-i18n-' + a); if (I18N[k] != null) el.setAttribute(a, t(k));
+            });
+        });
+    }
+    function loadLocale(cb) {
+        fetch('https://' + RESOURCE + '/locale', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+            .then(function (r) { return r.json(); })
+            .then(function (d) { if (d && typeof d === 'object') { I18N = d; localeReady = true; } applyI18n(); if (cb) cb(); })
+            .catch(function () { if (cb) cb(); });
+    }
+
     var root = document.getElementById('root');
     var current = null;
-    var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    function months() { return t('meta.months').split(','); }
 
     function $(id) { return document.getElementById(id); }
     function pad(n) { return (n < 10 ? '0' : '') + n; }
@@ -118,12 +144,12 @@
     }
     function dobText(s) {
         var p = parseDob(s);
-        return p ? pad(p.d) + ' ' + MONTHS[p.m - 1] + ' ' + p.y : (s || '-');
+        return p ? pad(p.d) + ' ' + months()[p.m - 1] + ' ' + p.y : (s || '-');
     }
     function dateText(ts) {
         if (!ts) return '-';
         var d = new Date(ts * 1000);
-        return pad(d.getDate()) + ' ' + MONTHS[d.getMonth()] + ' ' + d.getFullYear();
+        return pad(d.getDate()) + ' ' + months()[d.getMonth()] + ' ' + d.getFullYear();
     }
 
     // ICAO 9303 check digit: weights 7, 3, 1
@@ -167,7 +193,7 @@
         current = c;
         var bad = c.status && c.status !== 'issued';
         $('card').className = 'card' + (bad ? ' bad' : '');
-        $('stamp').textContent = c.status === 'expired' ? 'EXPIRED' : 'INVALID';
+        $('stamp').textContent = c.status === 'expired' ? t('card.expired') : t('card.invalid');
         $('country').textContent = c.countryName || '';
         $('number').textContent = c.number || '';
         $('last').textContent = (c.last || '').toUpperCase();
@@ -176,20 +202,20 @@
         $('sex').textContent = c.sex || '-';
         $('dob').textContent = dobText(c.dob);
         $('issued').textContent = dateText(c.issuedAt);
-        $('until').textContent = c.validUntil ? dateText(c.validUntil) : 'No expiry';
+        $('until').textContent = c.validUntil ? dateText(c.validUntil) : t('card.noExpiry');
         $('auth').textContent = c.placeOfIssue || '';
         var ph = $('photo');
         if (c.photo) { ph.style.backgroundImage = 'url("' + String(c.photo).replace(/"/g, '') + '")'; ph.innerHTML = ''; }
         else { ph.style.backgroundImage = ''; ph.innerHTML = silhouette(); }
         $('mrz').textContent = mrz(c);
-        $('from').textContent = msg.from ? msg.from + ' shows you their passport' : '';
+        $('from').textContent = msg.from ? t('card.shownBy', msg.from) : '';
         $('show').style.display = msg.own && !bad ? '' : 'none';
         root.className = 'on';
     }
 
     function post(name, data) {
         try {
-            fetch('https://' + (typeof GetParentResourceName === 'function' ? GetParentResourceName() : 'as-passport') + '/' + name, {
+            fetch('https://' + RESOURCE + '/' + name, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data || {}),
             }).catch(function () {});
         } catch (e) {}
@@ -199,13 +225,16 @@
 
     window.addEventListener('message', function (e) {
         var m = e.data || {};
-        if (m.action === 'open' && m.card) show(m);
+        if (m.action === 'open' && m.card) {
+            if (localeReady) show(m); else loadLocale(function () { show(m); });
+        }
         else if (m.action === 'close') hide();
     });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' || e.key === 'Backspace') closeAndTell(); });
     $('close').onclick = closeAndTell;
     $('show').onclick = function () { if (current) post('showNearby', { number: current.number }); };
     root.addEventListener('mousedown', function (e) { if (e.target === root) closeAndTell(); });
+    loadLocale();
 })();
 </script>
 </body>

@@ -66,6 +66,15 @@ A card is `{ number, first, last, dob, sex, nationality, type, status, issuedAt,
 
 `exports['as-passport']:getState(source)` and `apply(source, { type, lockerId })` are used by the government site.
 
+## Languages
+
+Every text the script shows (toasts, emails, phone notifications, the copy saved in the Files app, the Discord log titles and the card labels) lives in `locales/`. English is `locales/en.lua`.
+
+- **Switch language**: set `Config.locale = 'de'` (any file name in `locales/`, without `.lua`) in `config.lua`, then restart the resource. `config.lua` is server only, so the client asks the server which language to use.
+- **Add a language**: copy `locales/en.lua` to `locales/<code>.lua`, change `Locales['en']` to `Locales['<code>']`, translate the values only (keep the keys and the `%s` / `%d` placeholders in the same order), then set `Config.locale = '<code>'`. The file is loaded automatically by the `locales/*.lua` line in `fxmanifest.lua`.
+- **Missing keys** fall back to English, so a partial translation is fine.
+- **Not in the locale files**: text you edit yourself in `config.lua` stays there: `Config.types` labels and descriptions (these are shown on the government website), `Config.mailFrom`, `Config.delivery.sender`, `Config.placeOfIssue`, `Config.countryName`, `Config.nationality` and `Config.documentFolder`. Change those directly. The machine readable lines on the card are data and are not translated, and dates saved by the server (`%d %b %Y`) use the server's own date format. Console and log lines for the admin stay in English.
+
 ## Notes
 
 - One application at a time per character. Applications are paid from the bank (`Config.account`); a failed database insert refunds the payment.

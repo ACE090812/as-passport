@@ -97,7 +97,7 @@ local function itemMetadata(row)
         number = row.number,
         holder = ('%s %s'):format(row.first_name, row.last_name),
         dob = row.dob, sex = row.sex, nationality = row.nationality,
-        description = ('Passport %s, %s %s'):format(row.number, row.first_name, row.last_name),
+        description = T('item.description', row.number, row.first_name, row.last_name),
     }
 end
 
@@ -156,16 +156,16 @@ end
 
 --- Returns nil when allowed, or a reason.
 local function refusal(t, current, pending)
-    if pending then return 'You already have a passport application in progress.' end
+    if pending then return T('err.alreadyPending') end
     local valid = current ~= nil and effectiveStatus(current) == 'issued'
-    if t.needs == 'passport' and not valid then return 'You need a valid passport for this.' end
-    if t.needs ~= 'passport' and valid then return 'You already have a valid passport.' end
+    if t.needs == 'passport' and not valid then return T('err.needValid') end
+    if t.needs ~= 'passport' and valid then return T('err.alreadyValid') end
     return nil
 end
 
 local function getState(src)
     local cid = Bridge.getIdentifier(src)
-    if not cid then return nil, 'You are not signed in.' end
+    if not cid then return nil, T('err.notSignedIn') end
     local current, pending = currentRow(cid), pendingRow(cid)
 
     local types = {}
@@ -210,9 +210,9 @@ end
 
 local function apply(src, data)
     local cid = Bridge.getIdentifier(src)
-    if not cid then return nil, 'You are not signed in.' end
+    if not cid then return nil, T('err.notSignedIn') end
     local t = findType(tostring(data.type or ''))
-    if not t then return nil, 'Choose a passport type.' end
+    if not t then return nil, T('err.chooseType') end
 
     local current, pending = currentRow(cid), pendingRow(cid)
     local why = refusal(t, current, pending)
@@ -222,22 +222,22 @@ local function apply(src, data)
     local lockerId
     if mode == 'locker' then
         lockerId = tostring(data.lockerId or '')
-        if not lockerLabel(lockerId) then return nil, 'Choose where to collect your passport.' end
+        if not lockerLabel(lockerId) then return nil, T('err.chooseLocker') end
     end
 
     local info = Bridge.getCharInfo(src)
-    if (info.first or '') == '' then return nil, 'We could not read your character details.' end
+    if (info.first or '') == '' then return nil, T('err.noCharInfo') end
 
     local photo = takePhoto(src)
     if not photo and Config.photo.enabled and Config.photo.required then
-        return nil, 'We could not take your photo. Stand still, face the camera and try again.'
+        return nil, T('err.noPhoto')
     end
 
     local number = newNumber()
-    if not number then return nil, 'We could not create a passport number. Please try again.' end
+    if not number then return nil, T('err.noNumber') end
 
     if not Bridge.removeMoney(src, Config.account, t.price, 'passport') then
-        return nil, 'You do not have enough money in your bank account.'
+        return nil, T('err.noMoney')
     end
 
     local applied = now()
@@ -250,7 +250,7 @@ local function apply(src, data)
     end)
     if not ok or not id then
         Bridge.addMoney(src, Config.account, t.price, 'passport-refund')
-        return nil, 'We could not process your application. You have not been charged, please try again.'
+        return nil, T('err.applyFailed')
     end
 
     if t.invalidateOld then
@@ -264,11 +264,10 @@ local function apply(src, data)
         })
     end)
     local name = Bridge.getCharacterName(src)
-    Bridge.sendPhoneMail(src, cid, Config.mailFrom, 'We have received your passport application',
-        ('Hello %s,\n\nWe have received your %s application and your payment of %s%d.\n\nIt will be ready at %s. We will email you when it has been sent to you.'):format(
-            name, t.label:lower(), Config.currency, t.price, os.date('%d %b %Y %H:%M', applied + t.waitSeconds)))
-    discordLog('Passport application', 0x2563eb, {
-        { 'Type', t.label }, { 'Character', name }, { 'Citizen ID', cid }, { 'Paid', Config.currency .. t.price },
+    Bridge.sendPhoneMail(src, cid, Config.mailFrom, T('mail.received.subject'),
+        T('mail.received.body', name, t.label:lower(), Config.currency, t.price, os.date('%d %b %Y %H:%M', applied + t.waitSeconds)))
+    discordLog(T('discord.applied'), 0x2563eb, {
+        { T('discord.type'), t.label }, { T('discord.character'), name }, { T('discord.citizenId'), cid }, { T('discord.paid'), Config.currency .. t.price },
     })
 
     return { type = t.label, price = t.price, readyAt = applied + t.waitSeconds, now = applied }
@@ -294,20 +293,20 @@ end
 local function saveCopy(src, row)
     pcall(function()
         local lines = {
-            'Passport - ' .. Config.countryName,
+            T('doc.heading', Config.countryName),
             '',
-            'Passport number: ' .. row.number,
-            'Surname: ' .. row.last_name,
-            'Given names: ' .. row.first_name,
-            'Nationality: ' .. row.nationality,
-            'Date of birth: ' .. row.dob,
-            'Sex: ' .. row.sex,
-            'Date of issue: ' .. os.date('%d %b %Y', tonumber(row.issued_at) or now()),
-            'Place of issue: ' .. Config.placeOfIssue,
+            T('doc.number', row.number),
+            T('doc.surname', row.last_name),
+            T('doc.given', row.first_name),
+            T('doc.nationality', row.nationality),
+            T('doc.dob', row.dob),
+            T('doc.sex', row.sex),
+            T('doc.issued', os.date('%d %b %Y', tonumber(row.issued_at) or now())),
+            T('doc.place', Config.placeOfIssue),
         }
-        if (tonumber(row.valid_until) or 0) > 0 then lines[#lines + 1] = 'Valid until: ' .. os.date('%d %b %Y', row.valid_until) end
+        if (tonumber(row.valid_until) or 0) > 0 then lines[#lines + 1] = T('doc.validUntil', os.date('%d %b %Y', row.valid_until)) end
         exports['sd-phone']:createDocument(src, {
-            name = 'Passport ' .. row.number, kind = 'text', content = table.concat(lines, '\n'),
+            name = T('doc.name', row.number), kind = 'text', content = table.concat(lines, '\n'),
             folder = Config.documentFolder, deletable = true,
         })
     end)
@@ -326,7 +325,7 @@ local function deliver(row)
             return exports['as-postalprime']:createParcel(cid, {
                 ref = row.number, sender = Config.delivery.sender, lockerId = lockerId,
                 prepSeconds = Config.delivery.prepSeconds, expireSeconds = Config.delivery.expireSeconds,
-                items = { { item = Config.item, label = 'Passport', icon = '🛂', qty = 1, metadata = itemMetadata(row) } },
+                items = { { item = Config.item, label = T('item.label'), icon = '🛂', qty = 1, metadata = itemMetadata(row) } },
             })
         end)
         if not ok then log('createParcel failed: %s', tostring(sent)); return false end
@@ -335,12 +334,12 @@ local function deliver(row)
             return false -- 'busy': the player has another Postal Prime order, try again next pass
         end
         markIssued(row, false)
-        local label = lockerLabel(lockerId) or 'your locker'
+        local label = lockerLabel(lockerId) or T('misc.yourLocker')
         local src = Bridge.findSource(cid)
-        Bridge.phoneNotify(src, 'Passport sent', ('Your passport has been sent to %s.'):format(label))
-        Bridge.sendPhoneMail(src, cid, Config.mailFrom, 'Your passport is on its way',
-            ('Hello %s,\n\nYour passport has been sent to %s. Open Postal Prime for your pickup code, then collect it from the locker.\n\nPassport number: %s'):format(name, label, row.number))
-        discordLog('Passport issued', 0x16a34a, { { 'Number', row.number }, { 'Character', name }, { 'Citizen ID', cid }, { 'Sent to', label } })
+        Bridge.phoneNotify(src, T('phone.sent.title'), T('phone.sent.body', label))
+        Bridge.sendPhoneMail(src, cid, Config.mailFrom, T('mail.sent.subject'),
+            T('mail.sent.body', name, label, row.number))
+        discordLog(T('discord.issued'), 0x16a34a, { { T('discord.number'), row.number }, { T('discord.character'), name }, { T('discord.citizenId'), cid }, { T('discord.sentTo'), label } })
         return true
     end
 
@@ -353,10 +352,10 @@ local function deliver(row)
     end
     markIssued(row, true)
     saveCopy(src, row)
-    Bridge.phoneNotify(src, 'Passport issued', 'Your passport has been issued and added to your inventory.')
-    Bridge.sendPhoneMail(src, cid, Config.mailFrom, 'Your passport has been issued',
-        ('Hello %s,\n\nYour passport is ready and is in your inventory. A copy is saved in your Files app.\n\nPassport number: %s'):format(name, row.number))
-    discordLog('Passport issued', 0x16a34a, { { 'Number', row.number }, { 'Character', name }, { 'Citizen ID', cid }, { 'Sent to', 'Inventory' } })
+    Bridge.phoneNotify(src, T('phone.issued.title'), T('phone.issued.body'))
+    Bridge.sendPhoneMail(src, cid, Config.mailFrom, T('mail.issued.subject'),
+        T('mail.issued.body', name, row.number))
+    discordLog(T('discord.issued'), 0x16a34a, { { T('discord.number'), row.number }, { T('discord.character'), name }, { T('discord.citizenId'), cid }, { T('discord.sentTo'), T('discord.inventory') } })
     return true
 end
 
@@ -379,7 +378,7 @@ AddEventHandler('as-postalprime:parcelCollected', function(cid, ref, src)
     if not row or row.citizenid ~= cid then return end
     MySQL.update.await('UPDATE as_passports SET collected = 1 WHERE id = ?', { row.id })
     if src then saveCopy(src, row) end
-    discordLog('Passport collected', 0x0ea5e9, { { 'Number', row.number }, { 'Citizen ID', cid } })
+    discordLog(T('discord.collected'), 0x0ea5e9, { { T('discord.number'), row.number }, { T('discord.citizenId'), cid } })
 end)
 
 AddEventHandler('as-postalprime:parcelExpired', function(cid, ref)
@@ -435,11 +434,16 @@ RegisterNetEvent('as-passport:server:show', function(number)
         end
     end
     if not best then
-        TriggerClientEvent('ox_lib:notify', src, { title = 'Passport', description = 'There is nobody close enough.', type = 'error' })
+        TriggerClientEvent('ox_lib:notify', src, { title = T('toast.title'), description = T('toast.nobodyClose'), type = 'error' })
         return
     end
     TriggerClientEvent('as-passport:client:showCard', best, toCard(row, true), Bridge.getCharacterName(src))
-    TriggerClientEvent('ox_lib:notify', src, { title = 'Passport', description = 'You showed your passport.', type = 'success' })
+    TriggerClientEvent('ox_lib:notify', src, { title = T('toast.title'), description = T('toast.showed'), type = 'success' })
+end)
+
+-- config.lua is server only, so the client asks which language to use.
+lib.callback.register('as-passport:locale', function()
+    return Config.locale or 'en'
 end)
 
 Bridge.registerUsable(Config.item, function(source, item)
@@ -455,12 +459,12 @@ exports('getState', getState)
 
 --- For the gov site: apply. data = { type = 'standard', lockerId = '...' }. Returns a result or nil, message.
 exports('apply', function(src, data)
-    if type(src) ~= 'number' or type(data) ~= 'table' then return nil, 'Bad request.' end
-    if busy[src] then return nil, 'Please wait, your last request is still being processed.' end
+    if type(src) ~= 'number' or type(data) ~= 'table' then return nil, T('err.badRequest') end
+    if busy[src] then return nil, T('err.busy') end
     busy[src] = true
     local ok, res, err = pcall(apply, src, data)
     busy[src] = nil
-    if not ok then log('apply failed: %s', tostring(res)); return nil, 'Something went wrong. Please try again.' end
+    if not ok then log('apply failed: %s', tostring(res)); return nil, T('err.generic') end
     return res, err
 end)
 
@@ -492,7 +496,7 @@ exports('revokePassport', function(number, reason)
     if not row or row.status == 'invalid' then return false end
     MySQL.update.await("UPDATE as_passports SET status = 'invalid', invalid_reason = ? WHERE id = ?",
         { tostring(reason or 'revoked'):sub(1, 48), row.id })
-    discordLog('Passport revoked', 0xdc2626, { { 'Number', row.number }, { 'Citizen ID', row.citizenid }, { 'Reason', reason or 'revoked' } })
+    discordLog(T('discord.revoked'), 0xdc2626, { { T('discord.number'), row.number }, { T('discord.citizenId'), row.citizenid }, { T('discord.reason'), reason or 'revoked' } })
     return true
 end)
 

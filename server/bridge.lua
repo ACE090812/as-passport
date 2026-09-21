@@ -104,14 +104,14 @@ function Bridge.getCharInfo(source)
             }
         end
     end
-    local name = GetPlayerName(source) or 'Citizen'
+    local name = GetPlayerName(source) or T('misc.citizen')
     return { first = name, last = '', dob = '', sex = 'X', nationality = '' }
 end
 
 function Bridge.getCharacterName(source)
     local ci = Bridge.getCharInfo(source)
     local name = trim(('%s %s'):format(ci.first or '', ci.last or ''))
-    return name ~= '' and name or (GetPlayerName(source) or 'Citizen')
+    return name ~= '' and name or (GetPlayerName(source) or T('misc.citizen'))
 end
 
 -- ---------------------------------------------------------------------------------------------
@@ -211,7 +211,7 @@ end
 function Bridge.phoneNotify(source, title, body)
     if not source then return end
     pcall(function()
-        exports['sd-phone']:notify(source, { app = 'as-browser', appId = 'as-browser', title = title, body = body, time = 'now' })
+        exports['sd-phone']:notify(source, { app = 'as-browser', appId = 'as-browser', title = title, body = body, time = T('phone.now') })
     end)
 end
 

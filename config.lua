@@ -1,6 +1,8 @@
 -- as-passport settings. SERVER ONLY (never sent to players), so the webhook is safe here.
 Config = {}
 
+Config.locale = 'en'         -- Language: any file in locales/ (locales/en.lua = English). Copy en.lua to add a language.
+
 Config.framework = 'auto'      -- 'auto', 'qbx', 'qb' or 'esx'
 Config.inventory = 'auto'      -- 'auto', 'ox_inventory' or 'qb-inventory'
 

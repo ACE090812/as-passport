@@ -9,6 +9,8 @@ version '1.0.0'
 
 shared_scripts {
     '@ox_lib/init.lua',
+    'shared/locale.lua',
+    'locales/*.lua',
 }
 
 -- config.lua is SERVER ONLY: it holds the Discord webhook, and is never sent to players.
